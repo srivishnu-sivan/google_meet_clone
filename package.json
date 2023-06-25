@@ -1,0 +1,15 @@
+{
+  "name": "meet_folder_for_streaming",
+  "version": "1.0.0",
+  "description": "to create a streaming application",
+  "main": "index.js",
+  "scripts": {
+    "start": "node server"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.7.0"
+  }
+}
