@@ -8,6 +8,25 @@
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons"
   rel="stylesheet">
   <link rel="stylesheet" href="./public/Assets/css/style.css">
+  <script src="./public/Assets/js/jquery-3.4.1.min.js"></script>
+  <script src="./public/Assets/js/app.js"></script>
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.0/socket.io.js" integrity="sha512-+sXUwEYakGznuXubXLO/7LWSAPcm+U3NxMJaSu3S5OcvruAAAzaC50Uh4TW9KWj0hA6vfPAjB7E1uuIXgn9vmQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script>
+    $(function(){
+        const urlParams = new URLSearchParams(window.location.search)
+        let meeting_id = urlParams.get("meetingID")
+        let user_id  = window.prompt('Enter your user id')
+
+        if(!user_id || !meeting_id){
+            alert("User ID or Meeting ID is Missing")
+            window.location.href = "/action.html"
+            return
+        }
+        $("#meetingContainer").show()
+        MyApp._init(user_id,meeting_id)
+    })
+  </script>
 </head>
 <body>
     <main class=" d-flex flex-column home-wrap">

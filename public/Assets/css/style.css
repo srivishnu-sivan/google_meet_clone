@@ -82,11 +82,11 @@ input:focus , textarea:focus{
 }
 
 .g-top-left{
-    position: relative;
+    position: absolute;
     right: 0;
     height: 8vh;
     top: 0;
-    border-bottom-right-radius: 10px;
+    border-bottom-left-radius: 10px;
 }
 .top-left-participant-wrap{
     position: relative;

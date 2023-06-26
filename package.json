@@ -4,7 +4,7 @@
   "description": "to create a streaming application",
   "main": "index.js",
   "scripts": {
-    "start": "node server"
+    "start": "node server.js"
   },
   "author": "",
   "license": "ISC",
