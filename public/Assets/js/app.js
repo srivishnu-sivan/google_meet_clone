@@ -4,6 +4,8 @@
 const AppProcess = (function () {
   let peers_connection_ids = []
   let peers_connection = []
+  let remote_vid_stream = [] 
+  let remote_aud_stream = []
 let serverProcess = ""
   function _init(SDP_function, my_connid) {
     serverProcess = SDP_function;
@@ -17,7 +19,7 @@ let serverProcess = ""
     iceServers: [
       {
         urls: "stun:stun.l.google.com:19302",
-      },
+      }, 
       {
         urls: "stun:stun1.l.google.com:19302",
       },
@@ -40,11 +42,48 @@ let serverProcess = ""
     // !The track event is sent to the ontrack event handler on RTCPeerConnections after a new track has been added to an RTCRtpReceiver which is part of the connection.By the time this event is delivered, the new track has been fully added to the peer connection
 
     connection.ontrack = function (event) {
+      // this is to check video track of remote
+      if (!remote_vid_stream[connid]) {
+         remote_vid_stream[connid] = new MediaStream()
+      }
+      // this is to check audio track of remote
+       if (!remote_aud_stream[connid]) {
+         remote_aud_stream[connid] = new MediaStream();
+      } 
       
+      // video
+      if (event.track.kind === "video") {
+        remote_vid_stream[connid].getVideoTracks()
+          .forEach((t) => {
+          remote_vid_stream[connid].removeTrack(t)
+          })
+        
+        remote_vid_stream[connid].addTrack(event.track)
+
+        let remoteVideoPlayer = document.getElementById(`v_${connid}`)
+        remoteVideoPlayer.srcObject = null
+        remoteVideoPlayer.srcObject = remote_vid_stream[connid]
+        remoteVideoPlayer.load()
+      }
+      // audio
+      else if(event.track.kind === "audio") {
+        remote_aud_stream[connid].getAudioTracks().forEach(t => {
+          remote_aud_stream[connid].removeTrack(t);
+        });
+
+        remote_aud_stream[connid].addTrack(event.track);
+
+        let remoteAudioPlayer = document.getElementById(`a_${connid}`);
+        remoteAudioPlayer.srcObject = null;
+        remoteAudioPlayer.srcObject = remote_aud_stream[connid];
+        remoteAudioPlayer.load();
+      }
     }
 
     peers_connection_ids[connid] = connid
     peers_connection[connid] = connection
+
+    return connection
   }
 
  async function setOffer(connid) {
@@ -67,8 +106,11 @@ let serverProcess = ""
     init: async function (SDP_function, my_connid) {
       await _init(SDP_function, my_connid);
     },
-  };
-})
+    propcessClient : async function(SDP_function, my_connid) {
+      await SDProcedd(data, from_connid);
+    },
+  }; 
+})()
 
 
 
@@ -127,7 +169,9 @@ const MyApp = (function(){
             AppProcess.setNewConnection(data.connId);
         });
 
-
+      socket.on("SDPProcess", async function (data) {
+        await AppProcess.propcessClient(data.message, data.from_connid);
+        });
         
         
         
