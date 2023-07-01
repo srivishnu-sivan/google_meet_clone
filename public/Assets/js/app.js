@@ -7,7 +7,7 @@ const AppProcess = (function () {
   let remote_vid_stream = [] 
   let remote_aud_stream = []
 let serverProcess = ""
-  function _init(SDP_function, my_connid) {
+ async function _init(SDP_function, my_connid) {
     serverProcess = SDP_function;
     my_connection_id = my_connid
   }
@@ -26,7 +26,7 @@ let serverProcess = ""
     ],
   };
 
-  function setConnection(connid) {
+  async function setConnection(connid) {
     let connection = new RTCPeerConnection(iceConfiguration);
     // other user to connect 
     connection.onnegotiationneeded = async function (event) {
@@ -98,6 +98,51 @@ let serverProcess = ""
      offer: connection.localDescription,
    }),connid)
  }
+  
+  async function SDProcedd(message, from_connid) {
+    message = JSON.parse(message)
+    if (message.answer) {
+      // by passing message.answer to RTCSessionDescription() to set answer as remote description for sender
+      await peers_connection[from_connid].setRemoteDescription(
+        new RTCSessionDescription(message.answer)
+      );
+    } else if (message.offer) {
+      if (!peers_connection[from_connid]) {
+        // "!peers_connection[from_connid]" this means from_connid is not found in peers_connection,then add from_connid to peers_connection by using setConnection()
+        await setConnection(from_connid);
+      }
+
+      // to set remote description for us
+      await peers_connection[from_connid].setRemoteDescription(
+        new RTCSessionDescription(message.offer))
+      // * if from_connid is present in peers_connection then create Answer for the offer by using createAnswer()
+      // ? To know how createAnswer() works, refer , https://developer.mozilla.org/en-US/docs/Web/API/RTCPeerConnection/createAnswer
+      let answer = await peers_connection[from_connid].createAnswer()
+      // answer is localDescription of remote user
+      await peers_connection[from_connid].setLocalDescription(answer)
+      // the below code is to send response(answer) to the same user(remote) who offered us
+      serverProcess(
+        JSON.stringify({
+          answer: answer,
+        }),
+        from_connid
+      ); 
+
+    }
+    else if (message.icecandidate) {
+      // ? exchanging iceCandidate will happen for multiple times until both sides get stable, then brower will establish the connection
+      if (!peers_connection[from_connid]) {
+       await setConnection(from_connid)
+      }
+      try {
+        await peers_connection[from_connid].addIceCandidate(
+          message.icecandidate
+        );
+      } catch (error) {
+        console.log(error);
+      }
+    }
+  }
 
   return {
     setNewConnection: async function (connid) {
@@ -106,7 +151,7 @@ let serverProcess = ""
     init: async function (SDP_function, my_connid) {
       await _init(SDP_function, my_connid);
     },
-    propcessClient : async function(SDP_function, my_connid) {
+    propcessClient: async function (data, from_connid) {
       await SDProcedd(data, from_connid);
     },
   }; 
@@ -131,7 +176,7 @@ const MyApp = (function(){
     // core of this function is to signal the server when both user_id and meeting_id have value
     function event_process_for_signaling_server() {
       socket = io.connect()
-      // ! SDP_function declaration and it's uses, tis function is used to send icecandidate and offer our local description to other user using server.js
+      // ! SDP_function declaration and it's uses, this function is used to send icecandidate, offer our local description to other user using server.js
       // * By using socket.emit method we can send inforamtion from client to server
       const SDP_function = function (data,to_connid) {
         socket.emit("SDPProcess", {
@@ -168,6 +213,23 @@ const MyApp = (function(){
             // ? this function is used to webRTC to build connection other users to send video and audio data
             AppProcess.setNewConnection(data.connId);
         });
+      
+      // from server.js -2 //! this is to inform about other users to me
+      socket.on("inform_me_about_other_user", other_users => {
+        if (other_users) {
+          other_users.map((ele, index) => {
+            console.log(ele);
+            addUser(other_users[index], other_users[index].connectionId);
+            // ? this function is used to webRTC to build connection other users to send video and audio data
+            AppProcess.setNewConnection(other_users[index].connectionId);
+          })
+        }
+          
+
+        
+        
+      });
+      
 
       socket.on("SDPProcess", async function (data) {
         await AppProcess.propcessClient(data.message, data.from_connid);
@@ -202,4 +264,13 @@ const MyApp = (function(){
         }
     }
 } )()
+
+
+
+
+
+// !hints
+
+// SDP (Session Description Protocol) is the standard describing a peer-to-peer connection. SDP contains the codec, source address, and timing information of audio and video.
+
 

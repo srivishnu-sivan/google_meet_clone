@@ -51,6 +51,9 @@ io.on("connection", (socket) => {
       // go to app.js(client1)
     })
 
+    // ! inform me about other user
+    socket.emit("inform_me_about_other_user", other_users);
+
 
     
   });
