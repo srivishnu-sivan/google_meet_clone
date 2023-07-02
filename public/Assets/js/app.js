@@ -20,7 +20,7 @@ const AppProcess = (function () {
   };
 
   let video_st = video_states.None;
-
+  let videoCamTrack;
   async function _init(SDP_function, my_connid) {
     serverProcess = SDP_function;
     my_connection_id = my_connid;
@@ -73,6 +73,48 @@ const AppProcess = (function () {
       }
     });
   }
+
+  async function videoProcess(newVideoState) {
+    try {
+      let vstream = null
+      if (newVideoState === video_states.Camera) {
+       vstream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: 1920,
+            height:1080, 
+          },
+          audio : false
+        })
+      } else if (newVideoState === video_states.ScreenShare) {
+       vstream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: 1920,
+            height: 1080,
+          },
+          audio: false,
+        });
+      }
+
+      if (vstream && vstream.getVideoTracks().length > 0) {
+        videoCamTrack = vstream.getVideoTracks()[0]
+        //if videocam track is true, then check any data(video) is available 
+        if (videoCamTrack) {
+          local_div.srcObject = new MediaStream([videoCamTrack]);
+        }
+      }
+
+
+
+
+
+    } catch (error) {
+      console.log(error);
+      return
+    }
+    video_st = newVideoState
+  }
+
+
 
   // iceConfiguration provides users system details like IP address,network etc
   let iceConfiguration = {
