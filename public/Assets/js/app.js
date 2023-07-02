@@ -2,24 +2,84 @@
 
 // this is where we go part -2
 const AppProcess = (function () {
-  let peers_connection_ids = []
-  let peers_connection = []
-  let remote_vid_stream = [] 
-  let remote_aud_stream = []
-let serverProcess = ""
- async function _init(SDP_function, my_connid) {
+  let peers_connection_ids = [];
+  let peers_connection = [];
+  let remote_vid_stream = [];
+  let remote_aud_stream = [];
+  let serverProcess = "";
+  let local_div;
+  let audio;
+  let isAudioMute = true;
+  // ? rtp_aud_senders holds information rtp audio senders
+  let rtp_aud_senders = [];
+  //? video_state variable is used to know what kind of video is displayed on the screen caz, 1). It will be from your camera, 2). It will be from screen-sharing
+  let video_states = {
+    None: 0,
+    Camera: 1,
+    ScreenShare : 2
+  };
+
+  let video_st = video_states.None;
+
+  async function _init(SDP_function, my_connid) {
     serverProcess = SDP_function;
-    my_connection_id = my_connid
+    my_connection_id = my_connid;
+    // ! eventProcess() is to handle events i.e audio and video (enable and disable audio and video track)
+    eventProcess();
+    //  ! to load video
+    local_div = document.getElementById("localVideoPlayer");
   }
 
+  function eventProcess() {
+    //? audio
+    $("#micMuteUnmute").on("click", async () => {
+      if (!audio) {
+        await loadAudio();
+      }
+      if (!audio) {
+        alert("Audio permission is not granted");
+        return;
+      }
+      if (isAudioMute) {
+        audio.enable = true;
+        $(this).html("<span class='material-icons'>mic</span>");
+        //? to update audio in our track
+        updateMediaSenders(audio, rtp_aud_senders);
+      } else {
+        audio.enable = false;
+        $(this).html("<span class='material-icons'>mic_off</span>");
+        // ? to remove audio from track
+        removeMediaSenders(rtp_aud_senders);
+      }
+      // toggle mic to mute and unmute
+      isAudioMute = !isAudioMute;
+    });
 
+    // ? video
+    $("videoCamOnOff").on("click", async () => {
+      if (video_st === video_states.Camera) {
+        await videoProcess(video_states.None)
+      } else {
+        await videoProcess(video_states.Camera)
+      }
+    });
+
+    // ? screen share
+    $("ScreenShareOnOff").on("click", async () => {
+      if (video_st === video_states.ScreenShare) {
+        await videoProcess(video_states.None);
+      } else {
+        await videoProcess(video_states.ScreenShare);
+      }
+    });
+  }
 
   // iceConfiguration provides users system details like IP address,network etc
   let iceConfiguration = {
     iceServers: [
       {
         urls: "stun:stun.l.google.com:19302",
-      }, 
+      },
       {
         urls: "stun:stun1.l.google.com:19302",
       },
@@ -28,45 +88,47 @@ let serverProcess = ""
 
   async function setConnection(connid) {
     let connection = new RTCPeerConnection(iceConfiguration);
-    // other user to connect 
+    // other user to connect
     connection.onnegotiationneeded = async function (event) {
-      await setOffer(connid)
-    } 
+      await setOffer(connid);
+    };
     // after sending the offer,send icecandidate
     connection.onicecandidate = function (event) {
       if (event.candidate) {
-        serverProcess(JSON.stringify({icecandidate : event.candidate}),connid)
+        serverProcess(
+          JSON.stringify({ icecandidate: event.candidate }),
+          connid
+        );
       }
-    }
+    };
     // working with track
     // !The track event is sent to the ontrack event handler on RTCPeerConnections after a new track has been added to an RTCRtpReceiver which is part of the connection.By the time this event is delivered, the new track has been fully added to the peer connection
 
     connection.ontrack = function (event) {
       // this is to check video track of remote
       if (!remote_vid_stream[connid]) {
-         remote_vid_stream[connid] = new MediaStream()
+        remote_vid_stream[connid] = new MediaStream();
       }
       // this is to check audio track of remote
-       if (!remote_aud_stream[connid]) {
-         remote_aud_stream[connid] = new MediaStream();
-      } 
-      
+      if (!remote_aud_stream[connid]) {
+        remote_aud_stream[connid] = new MediaStream();
+      }
+
       // video
       if (event.track.kind === "video") {
-        remote_vid_stream[connid].getVideoTracks()
-          .forEach((t) => {
-          remote_vid_stream[connid].removeTrack(t)
-          })
-        
-        remote_vid_stream[connid].addTrack(event.track)
+        remote_vid_stream[connid].getVideoTracks().forEach(t => {
+          remote_vid_stream[connid].removeTrack(t);
+        });
 
-        let remoteVideoPlayer = document.getElementById(`v_${connid}`)
-        remoteVideoPlayer.srcObject = null
-        remoteVideoPlayer.srcObject = remote_vid_stream[connid]
-        remoteVideoPlayer.load()
+        remote_vid_stream[connid].addTrack(event.track);
+
+        let remoteVideoPlayer = document.getElementById(`v_${connid}`);
+        remoteVideoPlayer.srcObject = null;
+        remoteVideoPlayer.srcObject = remote_vid_stream[connid];
+        remoteVideoPlayer.load();
       }
       // audio
-      else if(event.track.kind === "audio") {
+      else if (event.track.kind === "audio") {
         remote_aud_stream[connid].getAudioTracks().forEach(t => {
           remote_aud_stream[connid].removeTrack(t);
         });
@@ -78,29 +140,32 @@ let serverProcess = ""
         remoteAudioPlayer.srcObject = remote_aud_stream[connid];
         remoteAudioPlayer.load();
       }
-    }
+    };
 
-    peers_connection_ids[connid] = connid
-    peers_connection[connid] = connection
+    peers_connection_ids[connid] = connid;
+    peers_connection[connid] = connection;
 
-    return connection
+    return connection;
   }
 
- async function setOffer(connid) {
-   //  inorder to work in setOffer function we need peerConnections and peerConection_id, so inorder to get peerConection_id and peerConections array from setConnection()
+  async function setOffer(connid) {
+    //  inorder to work in setOffer function we need peerConnections and peerConection_id, so inorder to get peerConection_id and peerConections array from setConnection()
 
-   let connection = peers_connection[connid];
-   // the below connection is RTCPeerConnection()
-   let offer = await connection.createOffer();
-   //  to know what is // ! "setLocalDescription":  https://developer.mozilla.org/en-US/docs/Web/API/RTCPeerConnection/setLocalDescription
-   await connection.setLocalDescription(offer);
-   serverProcess(JSON.stringify({
-     offer: connection.localDescription,
-   }),connid)
- }
-  
+    let connection = peers_connection[connid];
+    // the below connection is RTCPeerConnection()
+    let offer = await connection.createOffer();
+    //  to know what is // ! "setLocalDescription":  https://developer.mozilla.org/en-US/docs/Web/API/RTCPeerConnection/setLocalDescription
+    await connection.setLocalDescription(offer);
+    serverProcess(
+      JSON.stringify({
+        offer: connection.localDescription,
+      }),
+      connid
+    );
+  }
+
   async function SDProcedd(message, from_connid) {
-    message = JSON.parse(message)
+    message = JSON.parse(message);
     if (message.answer) {
       // by passing message.answer to RTCSessionDescription() to set answer as remote description for sender
       await peers_connection[from_connid].setRemoteDescription(
@@ -114,25 +179,24 @@ let serverProcess = ""
 
       // to set remote description for us
       await peers_connection[from_connid].setRemoteDescription(
-        new RTCSessionDescription(message.offer))
+        new RTCSessionDescription(message.offer)
+      );
       // * if from_connid is present in peers_connection then create Answer for the offer by using createAnswer()
       // ? To know how createAnswer() works, refer , https://developer.mozilla.org/en-US/docs/Web/API/RTCPeerConnection/createAnswer
-      let answer = await peers_connection[from_connid].createAnswer()
+      let answer = await peers_connection[from_connid].createAnswer();
       // answer is localDescription of remote user
-      await peers_connection[from_connid].setLocalDescription(answer)
+      await peers_connection[from_connid].setLocalDescription(answer);
       // the below code is to send response(answer) to the same user(remote) who offered us
       serverProcess(
         JSON.stringify({
           answer: answer,
         }),
         from_connid
-      ); 
-
-    }
-    else if (message.icecandidate) {
+      );
+    } else if (message.icecandidate) {
       // ? exchanging iceCandidate will happen for multiple times until both sides get stable, then brower will establish the connection
       if (!peers_connection[from_connid]) {
-       await setConnection(from_connid)
+        await setConnection(from_connid);
       }
       try {
         await peers_connection[from_connid].addIceCandidate(
@@ -154,7 +218,7 @@ let serverProcess = ""
     propcessClient: async function (data, from_connid) {
       await SDProcedd(data, from_connid);
     },
-  }; 
+  };
 })()
 
 
