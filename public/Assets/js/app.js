@@ -56,7 +56,7 @@ const AppProcess = (function () {
     });
 
     // ? video
-    $("videoCamOnOff").on("click", async () => {
+    $("#videoCamOnOff").on("click", async () => {
       if (video_st === video_states.Camera) {
         await videoProcess(video_states.None)
       } else {
@@ -65,7 +65,7 @@ const AppProcess = (function () {
     });
 
     // ? screen share
-    $("ScreenShareOnOff").on("click", async () => {
+    $("#ScreenShareOnOff").on("click", async () => {
       if (video_st === video_states.ScreenShare) {
         await videoProcess(video_states.None);
       } else {
@@ -100,12 +100,9 @@ const AppProcess = (function () {
         //if videocam track is true, then check any data(video) is available 
         if (videoCamTrack) {
           local_div.srcObject = new MediaStream([videoCamTrack]);
+          alert("video Cam found")
         }
       }
-
-
-
-
 
     } catch (error) {
       console.log(error);
@@ -275,8 +272,16 @@ const MyApp = (function(){
     let meeting_id = ""
     function init(uid, mid) {
         user_id = uid
-        meeting_id = mid
-        event_process_for_signaling_server();
+      meeting_id = mid
+      event_process_for_signaling_server();
+      // to make video to display,by making css property from display:none to dispaly:block using .show()
+      $("#meetingContainer").show()
+      // to display username
+      $("#me h2").text(user_id + "(Me)")
+      // to display remote users name
+      document.title = user_id;
+
+
     }
 
     // core of this function is to signal the server when both user_id and meeting_id have value
@@ -375,7 +380,7 @@ const MyApp = (function(){
 
 
 
-// !hints
+// ! technical term
 
 // SDP (Session Description Protocol) is the standard describing a peer-to-peer connection. SDP contains the codec, source address, and timing information of audio and video.
 
