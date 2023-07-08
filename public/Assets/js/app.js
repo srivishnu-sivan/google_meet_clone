@@ -12,11 +12,13 @@ const AppProcess = (function () {
   let isAudioMute = true;
   // ? rtp_aud_senders holds information rtp audio senders
   let rtp_aud_senders = [];
+  // ? rtp_vid_senders holds information rtp video senders
+  let rtp_vid_senders = [];
   //? video_state variable is used to know what kind of video is displayed on the screen caz, 1). It will be from your camera, 2). It will be from screen-sharing
   let video_states = {
     None: 0,
     Camera: 1,
-    ScreenShare : 2
+    ScreenShare: 2,
   };
 
   let video_st = video_states.None;
@@ -32,7 +34,7 @@ const AppProcess = (function () {
 
   function eventProcess() {
     //? audio
-    $("#micMuteUnmute").on("click", async () => {
+    $("#micMuteUnmute").on("click", async function(){
       if (!audio) {
         await loadAudio();
       }
@@ -56,16 +58,17 @@ const AppProcess = (function () {
     });
 
     // ? video
-    $("#videoCamOnOff").on("click", async () => {
+    $("#videoCamOnOff").on("click", async function () {
       if (video_st === video_states.Camera) {
-        await videoProcess(video_states.None)
+        console.log("inside if")
+        await videoProcess(video_states.None);
       } else {
-        await videoProcess(video_states.Camera)
+        await videoProcess(video_states.Camera);
       }
     });
 
     // ? screen share
-    $("#ScreenShareOnOff").on("click", async () => {
+    $("#ScreenShareOnOff").on("click", async function () {
       if (video_st === video_states.ScreenShare) {
         await videoProcess(video_states.None);
       } else {
@@ -74,19 +77,64 @@ const AppProcess = (function () {
     });
   }
 
+  async function updateMediaSenders(track,rtp_senders) {
+    for (let con_id in peers_connection_ids) {
+      if (connection_status(peers_connection[con_id])) {
+        if (rtp_senders[con_id] && rtp_senders[con_id].track) {
+          rtp_senders[con_id].replaceTrack(track)
+        } else {
+          rtp_senders[con_id] = peers_connection[con_id].addTrack(track)
+        }
+      }
+    }
+  }
+  async function connection_status(connection) {
+    if (connection && (connection.connectionState === "new" || connection.connectionState === "connecting" || connection.connectionState === "connected")) {
+      return true
+    } else {
+      return false
+    }
+    
+  }
+
+  function removeVideoStream(rtp_vid_senders) {
+    if (videoCamTrack) {
+      videoCamTrack.stop();
+      videoCamTrack = null;
+      local_div.srcObject = null
+      // ! 10:00 - (11remove stream)
+    }
+  }
+
   async function videoProcess(newVideoState) {
+    console.log("newVideoState====>", newVideoState);
+    if (newVideoState === video_states.None) {
+      $("#videoCamOnOff").html(
+        '<span class="material-icons">videocam_off</span>'
+      );
+      video_st = newVideoState;
+      // ? to remove video stream
+      removeVideoStream(rtp_vid_senders)
+      return
+
+    }
+    if (newVideoState === video_states.Camera) {
+      $("#videoCamOnOff").html(
+        '<span class="material-icons">videocam_on</span>'
+      );
+    }
     try {
-      let vstream = null
+      let vstream = null;
       if (newVideoState === video_states.Camera) {
-       vstream = await navigator.mediaDevices.getUserMedia({
+        vstream = await navigator.mediaDevices.getUserMedia({
           video: {
             width: 1920,
-            height:1080, 
+            height: 1080,
           },
-          audio : false
-        })
+          audio: false,
+        });
       } else if (newVideoState === video_states.ScreenShare) {
-       vstream = await navigator.mediaDevices.getUserMedia({
+        vstream = await navigator.mediaDevices.getDisplayMedia({
           video: {
             width: 1920,
             height: 1080,
@@ -96,22 +144,19 @@ const AppProcess = (function () {
       }
 
       if (vstream && vstream.getVideoTracks().length > 0) {
-        videoCamTrack = vstream.getVideoTracks()[0]
-        //if videocam track is true, then check any data(video) is available 
+        videoCamTrack = vstream.getVideoTracks()[0];
+        //if videocam track is true, then check any data(video) is available
         if (videoCamTrack) {
           local_div.srcObject = new MediaStream([videoCamTrack]);
-          alert("video Cam found")
+          updateMediaSenders(videoCamTrack, rtp_vid_senders);
         }
       }
-
     } catch (error) {
       console.log(error);
-      return
+      return;
     }
-    video_st = newVideoState
+    video_st = newVideoState;
   }
-
-
 
   // iceConfiguration provides users system details like IP address,network etc
   let iceConfiguration = {
@@ -184,6 +229,17 @@ const AppProcess = (function () {
     peers_connection_ids[connid] = connid;
     peers_connection[connid] = connection;
 
+    //? =============== this code block is used to show other user our video=========
+    if (
+      video_st === video_states.Camera ||
+      video_st === video_states.ScreenShare
+    ) {
+      if (videoCamTrack) {
+        
+        updateMediaSenders(videoCamTrack, rtp_vid_senders);
+      }
+    }
+      //? ===============================================
     return connection;
   }
 
