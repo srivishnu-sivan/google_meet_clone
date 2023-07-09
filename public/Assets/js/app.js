@@ -44,17 +44,17 @@ const AppProcess = (function () {
       }
       if (isAudioMute) {
         audio.enable = true;
-        $(this).html("<span class='material-icons'>mic</span>");
+        $(this).html("<span class='material-icons' style='width:100%'>mic</span>");
         //? to update audio in our track
         updateMediaSenders(audio, rtp_aud_senders);
       } else {
         audio.enable = false;
-        $(this).html("<span class='material-icons'>mic_off</span>");
+        $(this).html("<span class='material-icons' style='width:100%'>mic_off</span>");
         // ? to remove audio from track
         removeMediaSenders(rtp_aud_senders);
       }
       // toggle mic to mute and unmute
-      isAudioMute = !isAudioMute;
+      isAudioMute = !isAudioMute; 
     });
 
     // ? video
@@ -77,6 +77,21 @@ const AppProcess = (function () {
     });
   }
 
+  async function loadAudio() {
+  try {
+   let astream =  await navigator.mediaDevices.getUserMedia({
+      video: false,
+      audio: true,
+   })
+    audio = astream.getAudioTracks()[0]
+   audio.enabled = false
+
+
+  } catch (error) {
+    console.log(error);
+  }
+}
+
   async function updateMediaSenders(track,rtp_senders) {
     for (let con_id in peers_connection_ids) {
       if (connection_status(peers_connection[con_id])) {
@@ -97,12 +112,24 @@ const AppProcess = (function () {
     
   }
 
+  function removeMediaSenders(rtp_senders) {
+    for (let con_id in peers_connection_ids) {
+      if (rtp_senders[con_id] && connection_status(peers_connection[con_id])) {
+        peers_connection[con_id].removeTrack(rtp_senders[con_id])
+        rtp_senders[con_id] = null
+      }
+    }
+  }
+
+
+
   function removeVideoStream(rtp_vid_senders) {
     if (videoCamTrack) {
       videoCamTrack.stop();
       videoCamTrack = null;
       local_div.srcObject = null
-      // ! 10:00 - (11remove stream)
+      removeMediaSenders(rtp_vid_senders)
+      
     }
   }
 
@@ -110,7 +137,7 @@ const AppProcess = (function () {
     console.log("newVideoState====>", newVideoState);
     if (newVideoState === video_states.None) {
       $("#videoCamOnOff").html(
-        '<span class="material-icons">videocam_off</span>'
+        '<span class="material-icons" style="width:100%">videocam_off</span>'
       );
       video_st = newVideoState;
       // ? to remove video stream
@@ -120,7 +147,7 @@ const AppProcess = (function () {
     }
     if (newVideoState === video_states.Camera) {
       $("#videoCamOnOff").html(
-        '<span class="material-icons">videocam_on</span>'
+        '<span class="material-icons" style="width:100%">videocam_on</span>'
       );
     }
     try {
